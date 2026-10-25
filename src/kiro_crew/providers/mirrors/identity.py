@@ -105,6 +105,19 @@ def control_plane_identity_env(
         env["KIROCREW_BOUND_PORT"] = str(resolve_serving_port())
     except Exception:  # pragma: no cover - defensive
         logger.warning("%s session MCP: could not resolve the serving port", label, exc_info=True)
+    # LOCAL PATCH (codex control plane): an enforced harness's sandbox masks
+    # ``run/`` and ``.local_secret``, so without this the control plane calls the
+    # gateway with an empty X-Internal-Secret and every Crew tool is refused
+    # ("wrong secret ... received=absent"). Carried on the control-plane element
+    # only; read back by config.loader.read_local_secret as its last fallback.
+    try:
+        from kiro_crew.config.loader import read_local_secret
+
+        _secret = read_local_secret(int(env.get("KIROCREW_BOUND_PORT") or resolve_serving_port()))
+        if _secret:
+            env["KIROCREW_INTERNAL_SECRET"] = _secret
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("%s session MCP: could not resolve the internal secret", label, exc_info=True)
     return env
 
 

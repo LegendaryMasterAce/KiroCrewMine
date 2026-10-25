@@ -1302,9 +1302,20 @@ def read_local_secret(port: int) -> str:
     if per_port:
         return per_port
     try:
-        return (config_dir() / ".local_secret").read_text().strip()
+        shared = (config_dir() / ".local_secret").read_text().strip()
     except OSError:
-        return ""
+        shared = ""
+    if shared:
+        return shared
+    # LOCAL PATCH (codex control plane): inside an enforced harness's sandbox
+    # (codex) both ``run/`` and ``.local_secret`` are masked, so Crew's own
+    # control-plane MCP servers cannot read either file. The gateway hands the
+    # credential to those servers ONLY, on their ACP element env
+    # (providers/mirrors/identity.py). Consulted last, so a host that can read
+    # the files never uses it.
+    import os as _os
+
+    return _os.environ.get("KIROCREW_INTERNAL_SECRET", "").strip()
 
 
 def _raw_config() -> dict:
